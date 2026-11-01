@@ -1,7 +1,9 @@
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.db.models import Q
 
+from common.pagination import StandardPagination
 from apps.patients.models import Patient
 from apps.patients.serializers import PatientSerializer
 from common.permissions import IsDoctor, IsNurse, IsSameOrganization
@@ -16,8 +18,21 @@ class PatientListCreateView(APIView):
 
     def get(self, request):
         patients = Patient.objects.filter(organization=request.user.organization)
-        serializer = PatientSerializer(patients, many=True, context={"request": request})
-        return Response(serializer.data)
+
+        search = request.query_params.get("search")
+        if search:
+            patients = patients.filter(
+                Q(name__icontains=search) | Q(patient_id__icontains=search)
+            )
+
+        gender = request.query_params.get("gender")
+        if gender:
+            patients = patients.filter(gender=gender)
+
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(patients, request, view=self)
+        serializer = PatientSerializer(page, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         serializer = PatientSerializer(data=request.data, context={"request": request})

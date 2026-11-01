@@ -17,7 +17,7 @@ def get_s3_client():
     )
 
 
-def upload_file_to_s3(file_obj, organization_slug, original_filename):
+def upload_file_to_s3(file_obj, organization_slug, original_filename, content_type="application/octet-stream"):
     """
     Uploads a file to S3 and returns the file key.
     Path pattern: documents/{org_slug}/{uuid}/{filename}
@@ -30,7 +30,7 @@ def upload_file_to_s3(file_obj, organization_slug, original_filename):
         file_obj,
         settings.AWS_S3_BUCKET_NAME,
         file_key,
-        ExtraArgs={"ContentType": f"application/{ext}"},
+        ExtraArgs={"ContentType": content_type},
     )
     return file_key
 
@@ -59,3 +59,10 @@ def delete_file_from_s3(file_key):
         Bucket=settings.AWS_S3_BUCKET_NAME,
         Key=file_key,
     )
+
+
+def download_file_from_s3(file_key):
+    """Downloads a file from S3 and returns its bytes."""
+    s3 = get_s3_client()
+    obj = s3.get_object(Bucket=settings.AWS_S3_BUCKET_NAME, Key=file_key)
+    return obj["Body"].read()

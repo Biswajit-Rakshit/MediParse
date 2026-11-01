@@ -1,10 +1,13 @@
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+import uuid
 
+from common.pagination import StandardPagination
 from apps.documents.models import Document
 from apps.documents.serializers import DocumentUploadSerializer, DocumentSerializer
 from common.permissions import IsDoctor, IsNurse, IsSameOrganization
+from apps.extraction.tasks import extract_document_task
 from common.s3 import upload_file_to_s3
 
 
@@ -19,8 +22,30 @@ class DocumentListCreateView(APIView):
         documents = Document.objects.filter(
             organization=request.user.organization
         ).select_related("patient", "uploaded_by")
-        serializer = DocumentSerializer(documents, many=True)
-        return Response(serializer.data)
+
+        doc_status = request.query_params.get("status")
+        if doc_status:
+            documents = documents.filter(status=doc_status)
+
+        file_type = request.query_params.get("file_type")
+        if file_type:
+            documents = documents.filter(file_type=file_type)
+
+        patient = request.query_params.get("patient")
+        if patient:
+            try:
+                uuid.UUID(patient)
+            except ValueError:
+                return Response(
+                    {"patient": "Must be a valid UUID."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            documents = documents.filter(patient_id=patient)
+
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(documents, request, view=self)
+        serializer = DocumentSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         serializer = DocumentUploadSerializer(
@@ -41,6 +66,7 @@ class DocumentListCreateView(APIView):
             file_obj=file,
             organization_slug=request.user.organization.slug,
             original_filename=file.name,
+            content_type=file.content_type,
         )
 
         # Save document record
@@ -53,6 +79,8 @@ class DocumentListCreateView(APIView):
             file_type=file_type,
             status="uploaded",
         )
+
+        extract_document_task.delay(str(document.id))
 
         return Response(
             DocumentSerializer(document).data,
