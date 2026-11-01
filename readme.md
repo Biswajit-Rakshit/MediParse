@@ -94,6 +94,21 @@ docker-compose exec api python manage.py migrate
 | POST | `/api/auth/refresh/` | Public | Refresh access token |
 | GET | `/api/auth/me/` | Authenticated | Get current user details |
 
+### Patients
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| GET | `/api/patients/` | Nurse+ | List all patients in org |
+| POST | `/api/patients/` | Doctor+ | Create a patient |
+| GET | `/api/patients/<id>/` | Nurse+ | Retrieve a patient |
+| PATCH | `/api/patients/<id>/` | Doctor+ | Update a patient |
+
+### Documents
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| GET | `/api/documents/` | Nurse+ | List all documents in org |
+| POST | `/api/documents/` | Doctor+ | Upload a document to S3 |
+| GET | `/api/documents/<id>/` | Nurse+ | Retrieve a document + presigned URL |
+
 ---
 
 ## Roles & Permissions
@@ -114,7 +129,7 @@ Multi-tenancy is enforced at the object level — users can only access data wit
 | Sprint | Description | Status |
 |--------|-------------|--------|
 | Sprint 1 | Project scaffold, Docker, settings split, User/Org models, JWT auth, RBAC | ✅ Complete |
-| Sprint 2 | S3 integration, document upload, Patient CRUD, status tracking | 🔜 Upcoming |
+| Sprint 2 | S3 integration, document upload, Patient CRUD, status tracking | ✅ Complete |
 | Sprint 3 | Claude integration, extraction prompt, ExtractedRecord, Celery async | 🔜 Upcoming |
 | Sprint 4 | Audit log, rate limiting, Swagger docs, pytest tests | 🔜 Upcoming |
 | Sprint 5 | Dockerfile prod, ECS Fargate deploy, RDS, GitHub Actions CI/CD | 🔜 Upcoming |
