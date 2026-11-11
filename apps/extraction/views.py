@@ -3,10 +3,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db.models import Q
 
-from common.pagination import StandardPagination
 from apps.documents.models import Document
 from apps.extraction.models import ExtractedRecord
 from apps.extraction.serializers import ExtractedRecordSerializer
+from apps.audit.models import AuditLog
+from apps.audit.utils import log_action
+
+from common.pagination import StandardPagination
 from common.permissions import IsNurse
 
 
@@ -25,6 +28,7 @@ class DocumentExtractionView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        log_action(request, AuditLog.EXTRACTION_VIEW, "document", document.id)
         record = ExtractedRecord.objects.filter(document=document).first()
         if record is None:
             # not extracted yet (uploaded / processing)

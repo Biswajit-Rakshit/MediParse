@@ -3,9 +3,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db.models import Q
 
-from common.pagination import StandardPagination
 from apps.patients.models import Patient
 from apps.patients.serializers import PatientSerializer
+from apps.audit.models import AuditLog
+from apps.audit.utils import log_action
+
+from common.pagination import StandardPagination
 from common.permissions import IsDoctor, IsNurse, IsSameOrganization
 
 
@@ -37,7 +40,8 @@ class PatientListCreateView(APIView):
     def post(self, request):
         serializer = PatientSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
-            serializer.save()
+            patient = serializer.save()
+            log_action(request, AuditLog.PATIENT_CREATE, "patient", patient.id)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -51,9 +55,7 @@ class PatientDetailView(APIView):
 
     def get_object(self, pk, request):
         try:
-            patient = Patient.objects.get(pk=pk)
-            self.check_object_permissions(request, patient)
-            return patient
+            return Patient.objects.get(pk=pk, organization=request.user.organization)
         except Patient.DoesNotExist:
             return None
 
@@ -64,6 +66,7 @@ class PatientDetailView(APIView):
                 {"detail": "Patient not found."},
                 status=status.HTTP_404_NOT_FOUND
             )
+        log_action(request, AuditLog.PATIENT_VIEW, "patient", patient.id)
         serializer = PatientSerializer(patient, context={"request": request})
         return Response(serializer.data)
 
@@ -79,5 +82,9 @@ class PatientDetailView(APIView):
         )
         if serializer.is_valid():
             serializer.save()
+            log_action(
+                request, AuditLog.PATIENT_UPDATE, "patient", patient.id,
+                metadata={"fields": list(request.data.keys())},
+            )
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

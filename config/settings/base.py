@@ -88,6 +88,13 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_CLASSES": (
+        "common.throttles.OrganizationRateThrottle",
+        "rest_framework.throttling.AnonRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "20/min",
+    },
 }
 
 SPECTACULAR_SETTINGS = {
@@ -99,13 +106,17 @@ SPECTACULAR_SETTINGS = {
 CELERY_BROKER_URL = env("REDIS_URL")
 CELERY_RESULT_BACKEND = env("REDIS_URL")
 
-# AWS
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": env("REDIS_URL"),
+    }
+}
+
 AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
 AWS_S3_BUCKET_NAME = env("AWS_S3_BUCKET_NAME")
 AWS_S3_REGION = env("AWS_S3_REGION")
 
-# Gemini
-# Gemini
 GEMINI_API_KEY = env("GEMINI_API_KEY")
 GEMINI_MODEL = env("GEMINI_MODEL", default="gemini-3.5-flash-lite")

@@ -1,6 +1,6 @@
 # MediParse API
 
-A multi-tenant Healthcare Document Intelligence API that enables healthcare organizations to upload medical documents (PDFs/images), extract structured data using Claude AI, and expose it via a secure role-gated REST API with full audit logging.
+A multi-tenant Healthcare Document Intelligence API that enables healthcare organizations to upload medical documents (PDFs/images), extract structured data using Google Gemini AI, and expose it via a secure role-gated REST API with full audit logging.
 
 ---
 
@@ -89,10 +89,11 @@ docker-compose exec api python manage.py migrate
 ### Auth
 | Method | Endpoint | Access | Description |
 |--------|----------|--------|-------------|
-| POST | `/api/auth/register/` | Public | Register user + organization |
+| POST | `/api/auth/register/` | Public | Create a new organization and its admin user |
 | POST | `/api/auth/login/` | Public | Login, returns JWT tokens |
 | POST | `/api/auth/refresh/` | Public | Refresh access token |
 | GET | `/api/auth/me/` | Authenticated | Get current user details |
+| GET/POST | `/api/auth/users/` | Admin | List / add users in your organization |
 
 ### Patients
 | Method | Endpoint | Access | Description |
@@ -114,6 +115,11 @@ docker-compose exec api python manage.py migrate
 |--------|----------|--------|-------------|
 | GET | `/api/documents/<id>/extraction/` | Nurse+ | Extracted data for one document |
 | GET | `/api/extractions/` | Nurse+ | List extracted records in org |
+
+### Audit
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| GET | `/api/audit/logs/` | Admin | List audit logs for your organization (`action`, `user` filters) |
 
 ### Query parameters
 | Endpoint | Parameters |
@@ -137,6 +143,16 @@ Multi-tenancy is enforced at the object level — users can only access data wit
 
 ---
 
+## Security Notes
+- **Multi-tenancy:** every query is scoped to the caller's organization; cross-org access returns 404.
+- **RBAC:** four roles (admin, doctor, nurse, viewer) enforced per endpoint.
+- **Audit log:** append-only model recording logins, patient/document/extraction access and user creation. Logs store metadata, never medical content.
+- **Rate limiting:** per-organization limits by plan tier, a stricter upload limit, and an IP limit on unauthenticated endpoints.
+- **Registration:** public sign-up only creates a new organization; adding users to an existing org is admin-only.
+- **Files:** stored in a private S3 bucket and served through short-lived presigned URLs.
+
+---
+
 ## Build Status
 
 | Sprint | Description | Status |
@@ -144,7 +160,7 @@ Multi-tenancy is enforced at the object level — users can only access data wit
 | Sprint 1 | Project scaffold, Docker, settings split, User/Org models, JWT auth, RBAC | ✅ Complete |
 | Sprint 2 | S3 integration, document upload, Patient CRUD, status tracking | ✅ Complete |
 | Sprint 3 | Gemini extraction, ExtractedRecord, Celery async pipeline, pagination + filtering | ✅ Complete |
-| Sprint 4 | Audit log, rate limiting, Swagger docs, pytest tests | 🔜 Upcoming |
+| Sprint 4 | Audit log, rate limiting, secure registration, tests, Swagger docs | 🚧 In progress |
 | Sprint 5 | Dockerfile prod, ECS Fargate deploy, RDS, GitHub Actions CI/CD | 🔜 Upcoming |
 
 ---

@@ -3,12 +3,16 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 import uuid
 
-from common.pagination import StandardPagination
 from apps.documents.models import Document
 from apps.documents.serializers import DocumentUploadSerializer, DocumentSerializer
 from common.permissions import IsDoctor, IsNurse, IsSameOrganization
 from apps.extraction.tasks import extract_document_task
+from apps.audit.models import AuditLog
+from apps.audit.utils import log_action
+
+from common.pagination import StandardPagination
 from common.s3 import upload_file_to_s3
+from common.throttles import UploadRateThrottle
 
 
 class DocumentListCreateView(APIView):
@@ -17,6 +21,12 @@ class DocumentListCreateView(APIView):
         if self.request.method == "POST":
             return [IsDoctor()]
         return [IsNurse()]
+
+    def get_throttles(self):
+        throttles = super().get_throttles()
+        if self.request.method == "POST":
+            throttles.append(UploadRateThrottle())
+        return throttles
 
     def get(self, request):
         documents = Document.objects.filter(
@@ -79,7 +89,10 @@ class DocumentListCreateView(APIView):
             file_type=file_type,
             status="uploaded",
         )
-
+        log_action(
+            request, AuditLog.DOCUMENT_UPLOAD, "document", document.id,
+            metadata={"filename": file.name, "patient_id": str(patient.id)},
+        )
         extract_document_task.delay(str(document.id))
 
         return Response(
@@ -93,11 +106,9 @@ class DocumentDetailView(APIView):
 
     def get_object(self, pk, request):
         try:
-            document = Document.objects.select_related(
-                "patient", "uploaded_by"
-            ).get(pk=pk)
-            self.check_object_permissions(request, document)
-            return document
+            return Document.objects.select_related("patient", "uploaded_by").get(
+                pk=pk, organization=request.user.organization
+            )
         except Document.DoesNotExist:
             return None
 
@@ -109,4 +120,5 @@ class DocumentDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         serializer = DocumentSerializer(document)
+        log_action(request, AuditLog.DOCUMENT_VIEW, "document", document.id)
         return Response(serializer.data)

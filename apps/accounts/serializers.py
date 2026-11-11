@@ -1,5 +1,7 @@
 from rest_framework import serializers
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, password_validation
+from django.db import IntegrityError, transaction
+
 from apps.accounts.models import User, Organization
 
 
@@ -10,6 +12,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
+    """Public sign-up: creates a NEW organization; the registrant becomes its admin."""
     password = serializers.CharField(write_only=True, min_length=8)
     organization_name = serializers.CharField(write_only=True)
     organization_slug = serializers.CharField(write_only=True)
@@ -18,23 +21,55 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = ["email", "password", "role", "organization_name", "organization_slug"]
 
+    def validate_password(self, value):
+        password_validation.validate_password(value)
+        return value
+
+    def validate_organization_slug(self, value):
+        value = value.lower()
+        if Organization.objects.filter(slug=value).exists():
+            raise serializers.ValidationError("This organization slug is already taken.")
+        return value
+    
     def create(self, validated_data):
-        org_name = validated_data.pop("organization_name")
-        org_slug = validated_data.pop("organization_slug")
+        try:
+            with transaction.atomic():
+                organization = Organization.objects.create(
+                    name=validated_data["organization_name"],
+                    slug=validated_data["organization_slug"],
+                )
+                return User.objects.create_user(
+                    email=validated_data["email"],
+                    password=validated_data["password"],
+                    role="admin",
+                    organization=organization,
+                )
+        except IntegrityError:
+            # two requests raced for the same slug or email
+            raise serializers.ValidationError(
+                "That organization slug or email is already registered."
+            )
 
-        organization, _ = Organization.objects.get_or_create(
-            slug=org_slug,
-            defaults={"name": org_name}
-        )
+class AdminCreateUserSerializer(serializers.ModelSerializer):
+    """Used by an org admin to add a user to THEIR OWN organization."""
+    password = serializers.CharField(write_only=True)
 
-        user = User.objects.create_user(
+    class Meta:
+        model = User
+        fields = ["email", "password", "role"]
+
+    def validate_password(self, value):
+        password_validation.validate_password(value)
+        return value
+
+    def create(self, validated_data):
+        request = self.context["request"]
+        return User.objects.create_user(
             email=validated_data["email"],
             password=validated_data["password"],
             role=validated_data.get("role", "viewer"),
-            organization=organization,
+            organization=request.user.organization,
         )
-        return user
-
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
