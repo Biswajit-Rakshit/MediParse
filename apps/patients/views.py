@@ -9,7 +9,7 @@ from apps.audit.models import AuditLog
 from apps.audit.utils import log_action
 
 from common.pagination import StandardPagination
-from common.permissions import IsDoctor, IsNurse, IsSameOrganization
+from common.permissions import IsDoctor, IsNurse
 
 
 class PatientListCreateView(APIView):

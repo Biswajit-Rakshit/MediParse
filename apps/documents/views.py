@@ -5,7 +5,7 @@ import uuid
 
 from apps.documents.models import Document
 from apps.documents.serializers import DocumentUploadSerializer, DocumentSerializer
-from common.permissions import IsDoctor, IsNurse, IsSameOrganization
+from common.permissions import IsDoctor, IsNurse
 from apps.extraction.tasks import extract_document_task
 from apps.audit.models import AuditLog
 from apps.audit.utils import log_action

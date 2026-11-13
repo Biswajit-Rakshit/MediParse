@@ -31,3 +31,6 @@ postgres_data/
 
 # MacOS
 **/.DS_Store
+
+# Coverage
+.coverage

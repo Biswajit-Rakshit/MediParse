@@ -1,0 +1,6 @@
+[run]
+omit =
+    */migrations/*
+    apps/*/admin.py
+    apps/*/tests.py
+    manage.py
