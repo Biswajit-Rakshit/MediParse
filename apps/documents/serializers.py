@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from typing import Optional
+
 from apps.documents.models import Document
 from common.s3 import generate_presigned_url
 
@@ -58,9 +60,9 @@ class DocumentSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-    def get_download_url(self, obj):
+    def get_download_url(self, obj) -> str:
         return generate_presigned_url(obj.file_key)
 
-    def get_uploaded_by_email(self, obj):
+    def get_uploaded_by_email(self, obj) -> Optional[str]:
         if obj.uploaded_by:
             return obj.uploaded_by.email

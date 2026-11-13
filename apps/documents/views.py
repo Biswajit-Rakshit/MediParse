@@ -1,15 +1,18 @@
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 import uuid
 
 from apps.documents.models import Document
 from apps.documents.serializers import DocumentUploadSerializer, DocumentSerializer
-from common.permissions import IsDoctor, IsNurse
 from apps.extraction.tasks import extract_document_task
 from apps.audit.models import AuditLog
 from apps.audit.utils import log_action
 
+from common.permissions import IsDoctor, IsNurse
+from common.schema import PAGE_PARAMS, paginated
 from common.pagination import StandardPagination
 from common.s3 import upload_file_to_s3
 from common.throttles import UploadRateThrottle
@@ -28,6 +31,17 @@ class DocumentListCreateView(APIView):
             throttles.append(UploadRateThrottle())
         return throttles
 
+    @extend_schema(
+        operation_id="documents_list",
+        tags=["Documents"],
+        summary="List documents in your organization (nurse+)",
+        parameters=PAGE_PARAMS + [
+            OpenApiParameter("status", str, enum=["uploaded", "processing", "completed", "failed"]),
+            OpenApiParameter("file_type", str, enum=["pdf", "image"]),
+            OpenApiParameter("patient", OpenApiTypes.UUID, description="Filter by patient id."),
+        ],
+        responses=paginated(DocumentSerializer),
+    )
     def get(self, request):
         documents = Document.objects.filter(
             organization=request.user.organization
@@ -57,6 +71,16 @@ class DocumentListCreateView(APIView):
         serializer = DocumentSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
 
+    @extend_schema(
+        tags=["Documents"],
+        summary="Upload a document (doctor+)",
+        description="Max 10 MB; PDF, JPEG or PNG. The file is stored in S3 and extraction "
+                    "runs in the background, so the document starts as `uploaded`; poll "
+                    "`GET /api/documents/{id}/` or its `/extraction/` endpoint. "
+                    "Limited to 10 uploads per minute per organization.",
+        request={"multipart/form-data": DocumentUploadSerializer},
+        responses={201: DocumentSerializer, 400: OpenApiTypes.OBJECT},
+    )
     def post(self, request):
         serializer = DocumentUploadSerializer(
             data=request.data,
@@ -112,6 +136,11 @@ class DocumentDetailView(APIView):
         except Document.DoesNotExist:
             return None
 
+    @extend_schema(
+        tags=["Documents"],
+        summary="Retrieve a document with a 1-hour download URL (nurse+)",
+        responses={200: DocumentSerializer, 404: OpenApiResponse(description="Document not found")},
+    )
     def get(self, request, pk):
         document = self.get_object(pk, request)
         if not document:

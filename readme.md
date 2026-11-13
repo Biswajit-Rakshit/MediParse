@@ -130,6 +130,17 @@ docker-compose exec api python manage.py migrate
 
 ---
 
+## Testing
+
+```bash
+docker-compose exec api pytest
+docker-compose exec api pytest --cov=apps --cov=common --cov-report=term-missing
+```
+
+109 tests, 99% coverage. External services (S3, Gemini, Celery) are mocked, so the suite runs offline and costs nothing. S3 helpers are tested against an in-memory fake (`moto`).
+
+---
+
 ## Roles & Permissions
 
 | Role | Permissions |
@@ -139,7 +150,7 @@ docker-compose exec api python manage.py migrate
 | Nurse | View documents and extracted data |
 | Viewer | Read-only access |
 
-Multi-tenancy is enforced at the object level — users can only access data within their own organization.
+Multi-tenancy is enforced by organization-scoped queries on every endpoint. Requests for another organization's resources return 404.
 
 ---
 
@@ -160,7 +171,7 @@ Multi-tenancy is enforced at the object level — users can only access data wit
 | Sprint 1 | Project scaffold, Docker, settings split, User/Org models, JWT auth, RBAC | ✅ Complete |
 | Sprint 2 | S3 integration, document upload, Patient CRUD, status tracking | ✅ Complete |
 | Sprint 3 | Gemini extraction, ExtractedRecord, Celery async pipeline, pagination + filtering | ✅ Complete |
-| Sprint 4 | Audit log, rate limiting, secure registration, tests, Swagger docs | 🚧 In progress |
+| Sprint 4 | Audit log, rate limiting, secure registration, tests, Swagger docs | ✅ Complete |
 | Sprint 5 | Dockerfile prod, ECS Fargate deploy, RDS, GitHub Actions CI/CD | 🔜 Upcoming |
 
 ---

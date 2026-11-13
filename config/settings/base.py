@@ -99,8 +99,25 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "MediParse API",
-    "DESCRIPTION": "Healthcare Document Intelligence API",
+    "DESCRIPTION": (
+        "Multi-tenant healthcare document intelligence API. Upload medical documents, "
+        "extract structured data with Gemini, and read it through a role-gated API.\n\n"
+        "**Auth:** call `/api/auth/login/`, then click *Authorize* and paste the access token.\n\n"
+        "**Roles:** admin > doctor > nurse. Every endpoint is scoped to your organization. "
+        "All endpoints can return `401`, `403` (role too low) or `429` (rate limited, see the "
+        "`Retry-After` header)."
+    ),
     "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,   # separates upload (multipart) request schemas from responses
+    "SWAGGER_UI_SETTINGS": {"persistAuthorization": True},
+    "TAGS": [
+        {"name": "Auth", "description": "Registration, login, tokens, organization users"},
+        {"name": "Patients", "description": "Patient records (org-scoped)"},
+        {"name": "Documents", "description": "Upload and retrieve medical documents"},
+        {"name": "Extraction", "description": "Structured data extracted by Gemini"},
+        {"name": "Audit", "description": "Append-only access log (admin only)"},
+    ],
 }
 
 CELERY_BROKER_URL = env("REDIS_URL")

@@ -89,3 +89,13 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "email", "role", "organization", "created_at"]
+        
+
+class TokenPairSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+    access = serializers.CharField()
+
+
+class AuthResponseSerializer(serializers.Serializer):
+    user = UserSerializer()
+    tokens = TokenPairSerializer()
